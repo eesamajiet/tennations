@@ -9,7 +9,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const die = n => '⚀⚁⚂⚃⚄⚅'[n - 1];
 const prevS = {};
-const HERO = '<section class="hero"><h2>Conquer ten nations.</h2><p>Pick a country, outsmart nine AI rivals and roll your way to world domination. Share a game link and anyone can watch it live.</p></section>';
+let lastKey = '', sound = false, ctx = null, confettiFor = null;
+const ROLL = [[220, 0, .05], [330, .07, .05], [260, .14, .05], [400, .21, .05]], WIN = [[392, 0, .12], [523, .12, .12], [659, .24, .25]], LOSE = [[300, 0, .15], [220, .15, .15], [150, .3, .3]];
+const HERO = '<section class="hero"><h2>Conquer ten nations.</h2><div class="dicefloat" aria-hidden="true"><span>⚀</span><span>⚃</span><span>⚅</span></div><p>Pick a country, outsmart nine AI rivals and roll your way to world domination. Share a game link and anyone can watch it live.</p></section>';
 let user = null, gameId = new URLSearchParams(location.search).get('g'), game = null, unsub = null, ff = false, running = false, msg = '', sel = {};
 const isOwner = () => user && game && game.ownerUid === user.uid;
 const persist = now => store.save(gameId, game, now);
@@ -41,12 +43,14 @@ function render() {
   }
   const g = game, cur = g.cur();
   const over = g.status === 'over' ? `<p class="banner ${g.winner === g.human ? 'won' : 'lost'}">${g.winner === g.human ? 'You won! You conquered the world.' : `You lost. ${esc(g.nm(g.human))} was eliminated by ${esc(g.nm(g.winner))}.`}</p>` : '';
-  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}${prevS[c.iso] !== undefined && prevS[c.iso] !== c.soldiers ? ' bump' : ''}" style="--c:${col(c.owner)}"><div class="flagbar" style="background-image:url(${flagBig(c.iso)})"></div><div class="tinfo"><b>${esc(c.name)}${c.iso === g.human ? '<em>you</em>' : ''}</b><small>${c.owner === c.iso ? (c.iso === g.human ? 'your nation' : 'NPC, ' + (g.profiles?.[c.iso] || 'standard')) : `<img class="mini" src="${flag(c.owner)}" alt="">held by ${esc(g.nm(c.owner))}`}</small></div><span class="n">${c.soldiers}</span>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button class="add primary" data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
+  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}${prevS[c.iso] !== undefined && prevS[c.iso] !== c.soldiers ? ' bump' : ''}${c.owner !== c.iso ? ' held' : ''}" style="--c:${col(c.owner)}"><div class="flagbar" style="background-image:url(${flagBig(c.iso)})"></div><div class="tinfo"><b>${esc(c.name)}${c.iso === g.human ? '<em>you</em>' : ''}</b><small>${c.owner === c.iso ? (c.iso === g.human ? 'your nation' : 'NPC, ' + (g.profiles?.[c.iso] || 'standard')) : `<img class="mini" src="${flag(c.owner)}" alt="">held by ${esc(g.nm(c.owner))}`}</small></div><div class="pips">${'<i></i>'.repeat(Math.min(c.soldiers, 14))}${c.soldiers > 14 ? '<u>+</u>' : ''}</div><span class="n">${c.soldiers}</span>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button class="add primary" data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
   g.countries.forEach(c => prevS[c.iso] = c.soldiers);
   const picked = sel.bt !== undefined && sel.bt !== '' ? g.battles?.[+sel.bt] : null;
-  const battle = battleHtml(picked || g.lastBattle, g) + replayPicker(g);
+  const ai = [...g.log].reverse().find(l => l.t === 'ai');
+  const battle = battleHtml(picked || g.lastBattle, g) + (ai ? `<div class="bubble">🎙 ${esc(ai.text)}</div>` : '') + replayPicker(g);
   const log = [...g.log].reverse().map(l => `<p class="${l.t}">${esc(l.text)}</p>`).join('');
-  app.innerHTML = note + over + `<div class="layout"><div><div class="order">${g.order.map(id => `<img class="${id === cur && g.status === 'playing' ? 'on' : ''}${g.owned(id).length ? '' : ' out'}" style="--c:${col(id)}" src="${flag(id)}" alt="${esc(g.nm(id))}" title="${esc(g.nm(id))}">`).join('')}<span>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}</span></div><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? 'Normal speed' : 'Fast-forward NPCs'}</button><button data-act="copy">Copy share link</button><button data-act="home">All games</button></div></section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
+  app.innerHTML = note + over + `<div class="layout"><div><div class="order">${g.order.map(id => `<img class="${id === cur && g.status === 'playing' ? 'on' : ''}${g.owned(id).length ? '' : ' out'}" style="--c:${col(id)}" src="${flag(id)}" alt="${esc(g.nm(id))}" title="${esc(g.nm(id))}">`).join('')}<span>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}${g.status === 'playing' && cur !== g.human ? '<span class="dots"></span>' : ''}</span></div><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? '▶ Normal speed' : '⏩ Fast-forward NPCs'}</button><button data-act="copy">🔗 Copy share link</button><button data-act="home">All games</button><button data-act="snd">${sound ? '🔊 Sound on' : '🔇 Sound off'}</button></div></section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
+  afterRender();
 }
 function controls() {
   const g = game;
@@ -55,19 +59,36 @@ function controls() {
   if (g.cur() !== g.human) return '<p>NPCs are playing…</p>';
   const own = g.owned(g.human), foes = g.countries.filter(c => c.owner !== g.human);
   const opts = (l, s) => l.map(c => `<option value="${c.iso}" ${c.iso === s ? 'selected' : ''}>${esc(c.name)} (${c.soldiers})</option>`).join('');
-  if (g.attack) return `<p>${esc(g.nm(g.attack.from))} (${g.c(g.attack.from).soldiers}) vs ${esc(g.nm(g.attack.to))} (${g.c(g.attack.to).soldiers})</p><div class="row"><button class="primary" data-act="roll">Roll dice</button><button data-act="stop">Stop attack, end turn</button></div>`;
+  if (g.attack) return `<p>${esc(g.nm(g.attack.from))} (${g.c(g.attack.from).soldiers}) vs ${esc(g.nm(g.attack.to))} (${g.c(g.attack.to).soldiers})</p><div class="row"><button class="primary" data-act="roll">🎲 Roll dice</button><button data-act="stop">🏳 Stop attack, end turn</button></div>`;
   if (g.pending > 0) return `<p>Place ${g.pending} new soldiers with the +1 buttons.</p>`;
   const atk = own.filter(c => c.soldiers >= 2);
   sel.from = pick(sel.from, atk); sel.to = pick(sel.to, foes); sel.tf = pick(sel.tf, own); sel.tt = pick(sel.tt, own.filter(c => c.iso !== sel.tf));
-  return `<h2>Your turn</h2><div class="row"><select data-k="from" aria-label="Attack from">${opts(atk, sel.from)}</select><select data-k="to" aria-label="Target">${opts(foes, sel.to)}</select><button class="primary" data-act="attack" ${g.attackUsed || !atk.length ? 'disabled' : ''}>Attack</button></div>` +
-    (own.length > 1 ? `<div class="row"><select data-k="tf" aria-label="Transfer from">${opts(own, sel.tf)}</select><select data-k="tt" aria-label="Transfer to">${opts(own.filter(c => c.iso !== sel.tf), sel.tt)}</select><input data-k="n" type="number" min="1" value="${sel.n || 1}" style="width:70px" aria-label="Soldiers"><button data-act="transfer">Transfer</button></div>` : '') +
-    `<div class="row"><button data-act="end">End turn</button></div>`;
+  return `<h2>Your turn</h2><div class="row"><select data-k="from" aria-label="Attack from">${opts(atk, sel.from)}</select><select data-k="to" aria-label="Target">${opts(foes, sel.to)}</select><button class="primary" data-act="attack" ${g.attackUsed || !atk.length ? 'disabled' : ''}>⚔ Attack</button></div>` +
+    (own.length > 1 ? `<div class="row"><select data-k="tf" aria-label="Transfer from">${opts(own, sel.tf)}</select><select data-k="tt" aria-label="Transfer to">${opts(own.filter(c => c.iso !== sel.tf), sel.tt)}</select><input data-k="n" type="number" min="1" value="${sel.n || 1}" style="width:70px" aria-label="Soldiers"><button data-act="transfer">➜ Transfer</button></div>` : '') +
+    `<div class="row"><button data-act="end">⏭ End turn</button></div>`;
+}
+function beep(seq) {
+  if (!sound) return;
+  try { ctx ||= new AudioContext(); seq.forEach(([f, t, d]) => { const o = ctx.createOscillator(), v = ctx.createGain(); o.type = 'square'; o.frequency.value = f; v.gain.value = .04; o.connect(v); v.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + d); }); } catch {}
+}
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2200); }
+function afterRender() {
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (game.status === 'over' && confettiFor !== gameId) {
+    confettiFor = gameId;
+    if (game.winner === game.human) { beep(WIN); if (!calm) for (let i = 0; i < 60; i++) { const c = document.createElement('i'); c.className = 'conf'; c.style.cssText = `left:${Math.random() * 100}vw;background:${COLORS[i % 10]};animation-delay:${Math.random()}s`; document.body.append(c); setTimeout(() => c.remove(), 4500); } } else beep(LOSE);
+  }
+  const b = game.lastBattle; if (!b || b.n === lastKey) return; lastKey = b.n;
+  if (sel.bt !== undefined && sel.bt !== '') return;
+  document.querySelectorAll('.die').forEach(d => { const v = +d.dataset.v; let n = 0; const t = setInterval(() => { d.textContent = die(1 + Math.floor(Math.random() * 6)); if (++n > 7) { clearInterval(t); d.textContent = die(v); } }, 70); });
+  beep(ROLL);
+  if (b.outcome === 'conquered') { toast(`${game.nm(b.from)} conquers ${game.nm(b.to)}!`); beep(WIN); }
 }
 function battleHtml(b, g) {
   if (!b) return '<h2>Battlefield</h2><p>No battles yet. The dice will appear here.</p>';
   const out = b.outcome === 'conquered' ? `${esc(g.nm(b.to))} conquered!` : b.outcome === 'failed' ? 'Attack failed.' : `Attacker lost ${b.aLoss}, defender lost ${b.dLoss}.`;
   const side = id => `<div class="side"><img src="${flagBig(id)}" alt=""><b>${esc(g.nm(id))}</b></div>`;
-  return `<div class="duel">${side(b.from)}<span class="vs">VS</span>${side(b.to)}</div>` + b.A.map((a, i) => `<div class="pair"><span class="die ${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}">${die(a)}</span><span class="vs">vs</span><span class="die ${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}">${die(b.B[i])}</span></div>`).join('') + `<p class="result">${out}</p>`;
+  return `<div class="duel">${side(b.from)}<span class="vs">VS</span>${side(b.to)}</div>` + b.A.map((a, i) => `<div class="pair"><span class="die ${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}" data-v="${a}">${die(a)}</span><span class="vs">vs</span><span class="die ${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}" data-v="${b.B[i]}">${die(b.B[i])}</span></div>`).join('') + `<p class="result">${out}</p>`;
 }
 function replayPicker(g) {
   const l = (g.battles || []).map((x, i) => [x, i]).slice(-20).reverse();
@@ -140,6 +161,7 @@ document.addEventListener('click', async e => {
     if (a === 'open') { gameId = e.target.dataset.id; history.pushState(null, '', '?g=' + gameId); return store.onAuth && location.reload(); }
     if (a === 'home') { location.href = location.pathname; return; }
     if (a === 'ff') ff = !ff;
+    if (a === 'snd') { sound = !sound; beep([[440, 0, .08]]); }
     if (a === 'play') { const n = game.history.length; for (let i = 0; i < n; i++) { sel.hs = i; const s = $('#hs'); if (s) s.value = i; const h = $('#hist'); if (h) h.innerHTML = histHtml(game, i); await sleep(600); } return; }
     if (a === 'copy') { await navigator.clipboard.writeText(location.href); msg = 'Share link copied.'; }
     if (isOwner() && game.cur() === game.human && game.status === 'playing') {

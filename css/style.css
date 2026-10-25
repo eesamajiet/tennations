@@ -51,3 +51,18 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{text-align:left;
 input[type=range]{flex:1;padding:0;min-width:120px}
 @media(prefers-reduced-motion:no-preference){.die{animation:roll .45s}@keyframes roll{from{transform:rotate(-200deg) scale(.6);opacity:.3}}
 .tile.bump .n{animation:bump .5s}@keyframes bump{40%{transform:scale(1.35)}}.banner{animation:pop .5s}@keyframes pop{from{transform:scale(.9);opacity:0}}}
+.board{padding:14px;border-radius:8px;border:1px solid rgba(210,172,78,.3);background:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px) 0 0/40px 40px,linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px) 0 0/40px 40px,rgba(0,0,0,.2)}
+.pips{display:flex;gap:3px;flex-wrap:wrap;padding:0 12px 10px;min-height:19px}.pips i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:inset 0 -2px 0 rgba(0,0,0,.25)}.pips u{font-weight:700;font-size:.75rem;text-decoration:none}
+.tile.held .flagbar{filter:saturate(.3)}
+.tile.held .flagbar::before{content:"CONQUERED";position:absolute;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-9deg);font:900 1.25rem 'Big Shoulders Display';letter-spacing:.12em;color:#fff;background:var(--c);padding:0 10px;border:3px solid #fff}
+.bubble{margin:12px 0 4px;padding:10px 14px;background:#fff;border:2px solid var(--ink);border-radius:14px 14px 14px 2px;font-style:italic}
+.dicefloat{display:flex;gap:18px;font-size:4rem;line-height:1;color:var(--brass);opacity:.4;margin:6px 0 10px}
+.dots::after{content:"..."}
+.toast{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%);z-index:50;font:900 clamp(2.4rem,8vw,5rem) 'Big Shoulders Display';color:var(--brass);text-shadow:0 4px 0 #000,0 0 30px #000a;pointer-events:none;text-align:center;width:90vw}
+.conf{position:fixed;top:-20px;width:10px;height:16px;z-index:40;pointer-events:none;animation:fall 3s linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media(prefers-reduced-motion:no-preference){.dicefloat span{display:inline-block;animation:float 3s ease-in-out infinite}.dicefloat span:nth-child(2){animation-delay:.5s}.dicefloat span:nth-child(3){animation-delay:1s}
+@keyframes float{50%{transform:translateY(-12px) rotate(10deg)}}
+.dots::after{animation:dots 1.2s steps(4) infinite}@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.toast{animation:toast 2.2s forwards}@keyframes toast{0%{transform:translate(-50%,-50%) scale(.3) rotate(-8deg);opacity:0}15%{transform:translate(-50%,-50%) scale(1.1) rotate(-3deg);opacity:1}80%{opacity:1}100%{transform:translate(-50%,-90%) scale(1);opacity:0}}
+.tile.turn{animation:glow 1.6s ease-in-out infinite}@keyframes glow{50%{box-shadow:0 0 0 3px var(--brass),0 0 34px rgba(210,172,78,.9)}}}

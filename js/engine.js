@@ -59,7 +59,7 @@ export class Game {
       if (!this.owned(prev).length) this.say(`${this.nm(prev)} is eliminated.`);
       this.checkEnd(prev);
     } else if (a.soldiers <= 1) { this.attack = null; outcome = 'failed'; }
-    this.lastBattle = { from: a.iso, to: d.iso, A, B, aLoss, dLoss, outcome, gain };
+    this.lastBattle = { n: (this.seq = (this.seq || 0) + 1), from: a.iso, to: d.iso, A, B, aLoss, dLoss, outcome, gain };
     this.battles.push({ ...this.lastBattle, p: me, r: this.round }); if (this.battles.length > 60) this.battles.shift();
     this.say(`${a.name} vs ${d.name}: attacker lost ${aLoss}, defender lost ${dLoss}${outcome === 'conquered' ? `. ${d.name} conquered, ${gain} soldiers garrisoned` : outcome === 'failed' ? `. Attack failed, ${a.name} is down to 1` : ''}.`, 'battle');
     return this.lastBattle;
