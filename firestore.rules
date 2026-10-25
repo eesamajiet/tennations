@@ -1,6 +1,0 @@
-rules_version = '2';
-service cloud.firestore { match /databases/{db}/documents { match /games/{id} {
-  allow read: if true;   // anyone with the link can watch
-  allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-  allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-} } }
