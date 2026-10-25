@@ -3,12 +3,12 @@ const d6 = () => 1 + Math.floor(Math.random() * 6);
 const shuffle = a => [...a].sort(() => Math.random() - .5);
 export class Country { constructor(o) { Object.assign(this, o); } }
 export class Game {
-  constructor(st) { Object.assign(this, st); this.countries = st.countries.map(c => new Country(c)); }
-  static create(humanIso, ownerUid, ownerName) {
+  constructor(st) { Object.assign(this, st); this.countries = st.countries.map(c => new Country(c)); this.stats ||= {}; this.history ||= []; this.battles ||= []; this.profiles ||= {}; }
+  static create(humanIso, ownerUid, ownerName, difficulty = 'normal') {
     const me = COUNTRIES.find(c => c[1] === humanIso);
     const picks = [me, ...shuffle(COUNTRIES.filter(c => c[1] !== humanIso)).slice(0, 9)];
     const countries = picks.map(([name, iso, pop]) => ({ name, iso, pop, base: soldiersFor(pop), soldiers: soldiersFor(pop), owner: iso }));
-    const g = new Game({ ownerUid, ownerName, human: humanIso, countries, order: shuffle(countries.map(c => c.iso)), turn: 0, round: 1, pending: 0, attack: null, attackUsed: false, turnStarted: false, lastBattle: null, winner: null, status: 'playing', log: [], created: Date.now() });
+    const g = new Game({ ownerUid, ownerName, human: humanIso, countries, order: shuffle(countries.map(c => c.iso)), turn: 0, round: 1, pending: 0, attack: null, attackUsed: false, turnStarted: false, lastBattle: null, difficulty, profiles: Object.fromEntries(countries.filter(c => c.iso !== humanIso).map(c => [c.iso, ['aggressive', 'defensive', 'opportunist'][Math.floor(Math.random() * 3)]])), stats: Object.fromEntries(countries.map(c => [c.iso, { conq: 0, kills: 0, lost: 0 }])), history: [], battles: [], winner: null, status: 'playing', log: [], created: Date.now() });
     g.say(`New game. ${g.nm(g.cur())} was drawn to move first.`);
     return g;
   }
@@ -20,6 +20,7 @@ export class Game {
   beginTurn() {
     this.turnStarted = true; this.attackUsed = false; this.attack = null;
     this.pending = this.round >= 2 ? 2 * this.owned(this.cur()).length : 0;
+    if (this.round >= 2 && this.difficulty === 'hard' && this.cur() !== this.human) this.pending += 1;
     this.say(`Round ${this.round}: ${this.nm(this.cur())} to play${this.pending ? `, receives ${this.pending} soldiers` : ''}.`);
   }
   place(id, n) {
@@ -50,28 +51,30 @@ export class Game {
     const n = Math.min(a.soldiers - 1, d.soldiers), A = [], B = []; let aLoss = 0, dLoss = 0;
     for (let i = 0; i < n; i++) { A.push(d6()); B.push(d6()); if (A[i] > B[i]) dLoss++; else if (A[i] < B[i]) aLoss++; }
     a.soldiers -= aLoss; d.soldiers -= dLoss;
+    const st = (this.stats[me] ||= { conq: 0, kills: 0, lost: 0 }); st.kills += dLoss; st.lost += aLoss;
     let outcome = 'continue', gain = 0;
     if (d.soldiers <= 0) {
       const prev = d.owner; gain = Math.max(2, Math.floor(d.base / 2));
-      d.owner = me; d.soldiers = gain; this.attack = null; outcome = 'conquered';
+      d.owner = me; d.soldiers = gain; this.attack = null; outcome = 'conquered'; st.conq++;
       if (!this.owned(prev).length) this.say(`${this.nm(prev)} is eliminated.`);
       this.checkEnd(prev);
     } else if (a.soldiers <= 1) { this.attack = null; outcome = 'failed'; }
     this.lastBattle = { from: a.iso, to: d.iso, A, B, aLoss, dLoss, outcome, gain };
+    this.battles.push({ ...this.lastBattle, p: me, r: this.round }); if (this.battles.length > 60) this.battles.shift();
     this.say(`${a.name} vs ${d.name}: attacker lost ${aLoss}, defender lost ${dLoss}${outcome === 'conquered' ? `. ${d.name} conquered, ${gain} soldiers garrisoned` : outcome === 'failed' ? `. Attack failed, ${a.name} is down to 1` : ''}.`, 'battle');
     return this.lastBattle;
   }
   checkEnd(prev) {
-    const mine = this.owned(this.cur());
-    if (mine.length === this.countries.length) { this.status = 'over'; this.winner = this.cur(); }
-    else if (prev === this.human && !this.owned(prev).length) {
-      this.status = 'over'; this.winner = this.countries.reduce((b, c) => this.owned(c.owner).length > this.owned(b).length ? c.owner : b, this.cur());
+    const me = this.cur();
+    if (this.owned(me).length === this.countries.length || (prev === this.human && !this.owned(prev).length)) {
+      this.status = 'over'; this.winner = me; this.attack = null; this.result = me === this.human ? 'won' : 'lost';
+      this.say(this.result === 'won' ? 'You won! You conquered the world.' : `You lost. ${this.nm(this.human)} was eliminated by ${this.nm(me)}.`);
     }
-    if (this.status === 'over') this.say(this.winner === this.human ? 'You conquered the world!' : `Game over. ${this.nm(this.winner)} leads.`);
   }
   endTurn() {
     if (this.attack) throw new Error('Roll or stop the attack first.');
     if (this.pending > 0) { const b = this.owned(this.cur()).sort((x, y) => y.soldiers - x.soldiers)[0]; this.place(b.iso, this.pending); }
+    this.history.push({ r: this.round, p: this.cur(), s: this.countries.map(c => [c.owner, c.soldiers]) }); if (this.history.length > 200) this.history.shift();
     do { this.turn = (this.turn + 1) % this.order.length; if (this.turn === 0) this.round++; } while (!this.owned(this.cur()).length);
     this.turnStarted = false; this.attackUsed = false; this.attack = null;
   }

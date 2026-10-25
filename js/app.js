@@ -8,6 +8,7 @@ const COLORS = ['#b5382d', '#2f6fa8', '#c8a24a', '#7a4fa0', '#2e8b6a', '#d17a22'
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const die = n => '⚀⚁⚂⚃⚄⚅'[n - 1];
+const prevS = {};
 let user = null, gameId = new URLSearchParams(location.search).get('g'), game = null, unsub = null, ff = false, running = false, msg = '', sel = {};
 const isOwner = () => user && game && game.ownerUid === user.uid;
 const persist = now => store.save(gameId, game, now);
@@ -32,17 +33,19 @@ function authForm() {
 function render() {
   const note = msg ? `<p class="banner">${esc(msg)}</p>` : '';
   if (!game) {
-    app.innerHTML = note + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><button data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section>` : authForm());
-    if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">Open</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status}</div>`).join('') : 'No games yet.'; });
+    app.innerHTML = note + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><select id="diff" aria-label="NPC difficulty"><option value="easy">Easy NPCs</option><option value="normal" selected>Normal NPCs</option><option value="hard">Hard NPCs</option></select><button data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section><section class="panel"><h2>Statistics</h2><div id="stats">Loading…</div></section>` : authForm());
+    if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">Open</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status === 'over' ? (x.winner === x.human ? 'won' : 'lost') : 'in progress'}</div>`).join('') : 'No games yet.'; });
+    if (user) store.all().then(showStats).catch(() => {});
     return;
   }
   const g = game, cur = g.cur();
-  const over = g.status === 'over' ? `<p class="banner">${g.winner === g.human ? 'You conquered the world!' : `Game over. ${esc(g.nm(g.winner))} leads.`}</p>` : '';
-  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}" style="--c:${col(c.owner)}"><img src="${flag(c.iso)}" alt=""><b>${esc(c.name)}</b><span class="n">${c.soldiers}</span><small>${c.owner === c.iso ? 'own territory' : 'held by ' + esc(g.nm(c.owner))}${c.iso === g.human ? ' (you)' : ''}</small>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
-  const b = g.lastBattle;
-  const battle = b ? `<h2>${esc(g.nm(b.from))} attacks ${esc(g.nm(b.to))}</h2>` + b.A.map((a, i) => `<div class="dice"><span class="${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}">${die(a)}</span> vs <span class="${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}">${die(b.B[i])}</span></div>`).join('') + `<p>Attacker lost ${b.aLoss}, defender lost ${b.dLoss}.</p>` : '<p>No battles yet.</p>';
+  const over = g.status === 'over' ? `<p class="banner">${g.winner === g.human ? 'You won! You conquered the world.' : `You lost. ${esc(g.nm(g.human))} was eliminated by ${esc(g.nm(g.winner))}.`}</p>` : '';
+  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}${prevS[c.iso] !== undefined && prevS[c.iso] !== c.soldiers ? ' bump' : ''}" style="--c:${col(c.owner)}"><img src="${flag(c.iso)}" alt=""><b>${esc(c.name)}</b><span class="n">${c.soldiers}</span><small>${c.owner === c.iso ? (c.iso === g.human ? 'your nation' : 'NPC, ' + (g.profiles?.[c.iso] || 'standard')) : 'held by ' + esc(g.nm(c.owner))}${c.iso === g.human && c.owner !== c.iso ? ' (you)' : ''}</small>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
+  g.countries.forEach(c => prevS[c.iso] = c.soldiers);
+  const picked = sel.bt !== undefined && sel.bt !== '' ? g.battles?.[+sel.bt] : null;
+  const battle = battleHtml(picked || g.lastBattle, g) + replayPicker(g);
   const log = [...g.log].reverse().map(l => `<p class="${l.t}">${esc(l.text)}</p>`).join('');
-  app.innerHTML = note + over + `<div class="layout"><div><p>Round ${g.round}. ${esc(g.nm(cur))} is playing.</p><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? 'Normal speed' : 'Fast-forward NPCs'}</button><button data-act="copy">Copy share link</button><button data-act="home">All games</button></div></section>${user ? '' : authForm()}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
+  app.innerHTML = note + over + `<div class="layout"><div><p>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}</p><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? 'Normal speed' : 'Fast-forward NPCs'}</button><button data-act="copy">Copy share link</button><button data-act="home">All games</button></div></section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
 }
 function controls() {
   const g = game;
@@ -59,6 +62,35 @@ function controls() {
     (own.length > 1 ? `<div class="row"><select data-k="tf" aria-label="Transfer from">${opts(own, sel.tf)}</select><select data-k="tt" aria-label="Transfer to">${opts(own.filter(c => c.iso !== sel.tf), sel.tt)}</select><input data-k="n" type="number" min="1" value="${sel.n || 1}" style="width:70px" aria-label="Soldiers"><button data-act="transfer">Transfer</button></div>` : '') +
     `<div class="row"><button data-act="end">End turn</button></div>`;
 }
+function battleHtml(b, g) {
+  if (!b) return '<p>No battles yet.</p>';
+  return `<h2>${esc(g.nm(b.from))} attacks ${esc(g.nm(b.to))}</h2>` + b.A.map((a, i) => `<div class="dice"><span class="${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}">${die(a)}</span> vs <span class="${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}">${die(b.B[i])}</span></div>`).join('') + `<p>Attacker lost ${b.aLoss}, defender lost ${b.dLoss}.</p>`;
+}
+function replayPicker(g) {
+  const l = (g.battles || []).map((x, i) => [x, i]).slice(-20).reverse();
+  return l.length ? `<select data-k="bt" aria-label="Replay a battle"><option value="">Latest battle</option>${l.map(([x, i]) => `<option value="${i}" ${String(sel.bt) === String(i) ? 'selected' : ''}>Round ${x.r}: ${esc(g.nm(x.from))} vs ${esc(g.nm(x.to))}</option>`).join('')}</select>` : '';
+}
+function histHtml(g, i) {
+  const h = g.history[+i]; if (!h) return '';
+  return `<p>Round ${h.r}, end of ${esc(g.nm(h.p))}'s turn</p><div class="row">${g.countries.map((c, j) => `<span class="chip" style="--c:${col(h.s[j][0])}">${esc(c.name)} ${h.s[j][1]}</span>`).join('')}</div>`;
+}
+function historyPanel(g) {
+  const n = (g.history || []).length; if (!n) return '';
+  const i = Math.min(sel.hs ?? n - 1, n - 1);
+  return `<section class="panel"><h2>History replay</h2><div class="row"><input id="hs" type="range" data-k="hs" min="0" max="${n - 1}" value="${i}" aria-label="Turn"><button data-act="play">Play history</button></div><div id="hist">${histHtml(g, i)}</div></section>`;
+}
+function statsPanel(g) {
+  const rows = g.countries.map(c => { const s = g.stats?.[c.iso] || { conq: 0, kills: 0, lost: 0 }; return `<tr><td>${esc(c.name)}</td><td>${c.iso === g.human ? 'you' : g.profiles?.[c.iso] || ''}</td><td>${s.conq}</td><td>${s.kills}</td><td>${s.lost}</td></tr>`; }).join('');
+  return `<section class="panel"><h2>Nation stats</h2><table><tr><th>Nation</th><th>Style</th><th>Conquests</th><th>Kills</th><th>Losses</th></tr>${rows}</table></section>`;
+}
+function showStats(all) {
+  const el = $('#stats'); if (!el) return;
+  const won = l => l.filter(x => x.winner === x.human).length, fin = all.filter(x => x.status === 'over');
+  const mine = all.filter(x => x.ownerUid === user.uid), mf = mine.filter(x => x.status === 'over'), cnt = {};
+  all.forEach(x => cnt[x.human] = (cnt[x.human] || 0) + 1);
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  el.innerHTML = `<p>You: ${mine.length} games, ${won(mf)} won, ${mf.length - won(mf)} lost.</p><p>Platform: ${all.length} games, ${fin.length} finished, player win rate ${fin.length ? Math.round(won(fin) / fin.length * 100) : 0}%, average ${fin.length ? Math.round(fin.reduce((s, x) => s + x.round, 0) / fin.length) : 0} rounds${top ? ', most picked nation ' + esc(COUNTRIES.find(c => c[1] === top[0])?.[0] || top[0]) : ''}.</p>`;
+}
 async function round(now) {
   const r = game.rollRound(); persist(now); render();
   Commentator.say(game, r).then(t => { game.say(t, 'ai'); persist(); render(); });
@@ -66,7 +98,7 @@ async function round(now) {
 }
 async function npcTurn() {
   const g = game, id = g.cur(), name = g.nm(id), wait = () => sleep(ff ? 150 : 1200);
-  const step = async (t, tx) => { g.say(`${name}: ${tx}`, t); persist(); render(); await wait(); };
+  const step = async (t, tx) => { g.say(`${name} (${g.profiles?.[id] || 'NPC'}): ${tx}`, t); persist(); render(); await wait(); };
   if (!g.turnStarted) g.beginTurn();
   if (g.pending > 0) { const p = Npc.reinforce(g, id); g.place(p.to, p.n); await step('decision', p.why); }
   const plan = Npc.plan(g, id);
@@ -74,7 +106,7 @@ async function npcTurn() {
   if (plan.attack) {
     await step('decision', plan.attack.why); g.startAttack(plan.attack.from, plan.attack.to);
     while (g.attack) {
-      const c = Npc.carryOn(g);
+      const c = Npc.carryOn(g, id);
       if (!c.go) { g.stopAttack(); await step('decision', c.why); break; }
       await round(false); await wait();
     }
@@ -92,7 +124,8 @@ async function loop() {
   } finally { running = false; render(); }
 }
 async function endHuman() { game.endTurn(); persist(true); render(); await loop(); }
-app.addEventListener('change', e => { const k = e.target.dataset.k; if (k) { sel[k] = e.target.value; if (k === 'tf') render(); } });
+app.addEventListener('change', e => { const k = e.target.dataset.k; if (k) { sel[k] = e.target.value; if (k === 'tf' || k === 'bt') render(); } });
+app.addEventListener('input', e => { if (e.target.dataset.k === 'hs') { sel.hs = +e.target.value; const h = $('#hist'); if (h) h.innerHTML = histHtml(game, sel.hs); } });
 document.addEventListener('click', async e => {
   const a = e.target.dataset?.act; if (!a) return;
   msg = '';
@@ -100,10 +133,11 @@ document.addEventListener('click', async e => {
     if (a === 'out') return store.signOut();
     if (a === 'signin') await store.signIn($('#email').value, $('#pw').value);
     if (a === 'signup') await store.signUp($('#email').value, $('#pw').value, $('#dn').value);
-    if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
+    if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email, $('#diff').value); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
     if (a === 'open') { gameId = e.target.dataset.id; history.pushState(null, '', '?g=' + gameId); return store.onAuth && location.reload(); }
     if (a === 'home') { location.href = location.pathname; return; }
     if (a === 'ff') ff = !ff;
+    if (a === 'play') { const n = game.history.length; for (let i = 0; i < n; i++) { sel.hs = i; const s = $('#hs'); if (s) s.value = i; const h = $('#hist'); if (h) h.innerHTML = histHtml(game, i); await sleep(600); } return; }
     if (a === 'copy') { await navigator.clipboard.writeText(location.href); msg = 'Share link copied.'; }
     if (isOwner() && game.cur() === game.human && game.status === 'playing') {
       if (a === 'add') { game.place(e.target.dataset.id, 1); persist(true); }

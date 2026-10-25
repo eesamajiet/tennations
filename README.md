@@ -36,6 +36,11 @@ Built for the **UCT Information Systems Honours 2027 entrance exam (INF4001)**.
 **Bonus features**
 - **Live spectating:** share `?g=GAME_ID` and viewers see the game update in real time.
 - **Anti-cheat:** the full game state, including an attack in progress, is saved to Firestore on every player action. Closing the browser cannot cancel or re-roll an attack.
+- **NPC profiles:** each NPC is aggressive, defensive or opportunistic, which changes its targets, risk tolerance and when it stops attacking. The profile is shown on its tile and in its logged reasoning.
+- **Difficulty levels:** Easy NPCs sometimes attack without checking the odds, Normal NPCs follow their profile, Hard NPCs also get a bonus soldier each round.
+- **Replay and history:** a slider and play button step through the board after every turn, and any of the last 20 battles can be replayed.
+- **Analytics:** per-nation stats in each game (conquests, kills, losses), plus your own record and platform totals (games, win rate, average length, most picked nation) on the home page.
+- **Animations:** dice roll animations and soldier-count pulses, disabled for users who prefer reduced motion.
 
 ---
 
@@ -120,6 +125,6 @@ The following accounts have been added to the Firebase project `tennations` unde
 ## Known limitations
 
 - Population figures are approximate and fixed in `js/data.js`.
-- NPC strategy is shared by all NPCs; there are no difficulty levels or personalities.
+- Alliances and diplomacy, and LLM-driven NPC decisions, are not implemented; NPC decisions come from the rule-based strategy in `js/npc.js`.
 - Gemini commentary is rate-limited to roughly one call every few seconds to stay within free-tier limits; other rounds use built-in commentary.
 - Dice are rolled in the browser, so this is a casual game, not a tamper-proof competitive one.

@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut as fbOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, collection, setDoc, getDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, collection, setDoc, getDoc, onSnapshot, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from './config.js';
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 let timer = null;
@@ -18,4 +18,5 @@ export function save(id, g, now = false) {
 }
 export const get = async id => { const s = await getDoc(doc(db, 'games', id)); return s.exists() ? s.data() : null; };
 export const watch = (id, cb) => onSnapshot(doc(db, 'games', id), s => s.exists() && cb(s.data()));
+export async function all() { const s = await getDocs(query(collection(db, 'games'), limit(300))); return s.docs.map(d => d.data()); }
 export async function mine(uid) { const s = await getDocs(query(collection(db, 'games'), where('ownerUid', '==', uid))); return s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.created - a.created); }
