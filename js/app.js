@@ -1,4 +1,4 @@
-import { COUNTRIES, flag } from './data.js';
+import { COUNTRIES, flag, flagBig } from './data.js';
 import { Game } from './engine.js';
 import { Npc } from './npc.js';
 import { Commentator } from './ai.js';
@@ -9,6 +9,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const die = n => '⚀⚁⚂⚃⚄⚅'[n - 1];
 const prevS = {};
+const HERO = '<section class="hero"><h2>Conquer ten nations.</h2><p>Pick a country, outsmart nine AI rivals and roll your way to world domination. Share a game link and anyone can watch it live.</p></section>';
 let user = null, gameId = new URLSearchParams(location.search).get('g'), game = null, unsub = null, ff = false, running = false, msg = '', sel = {};
 const isOwner = () => user && game && game.ownerUid === user.uid;
 const persist = now => store.save(gameId, game, now);
@@ -31,21 +32,21 @@ function authForm() {
   return `<section class="panel"><h2>Sign in to play</h2><div class="row"><input id="email" type="email" placeholder="Email" aria-label="Email"><input id="pw" type="password" placeholder="Password" aria-label="Password"><input id="dn" placeholder="Display name (sign up)" aria-label="Display name"></div><div class="row"><button data-act="signin">Sign in</button><button data-act="signup">Create account</button></div></section>`;
 }
 function render() {
-  const note = msg ? `<p class="banner">${esc(msg)}</p>` : '';
+  const note = msg ? `<p class="banner note">${esc(msg)}</p>` : '';
   if (!game) {
-    app.innerHTML = note + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><select id="diff" aria-label="NPC difficulty"><option value="easy">Easy NPCs</option><option value="normal" selected>Normal NPCs</option><option value="hard">Hard NPCs</option></select><button data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section><section class="panel"><h2>Statistics</h2><div id="stats">Loading…</div></section>` : authForm());
+    app.innerHTML = note + HERO + '<div class="lobby">' + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><select id="diff" aria-label="NPC difficulty"><option value="easy">Easy NPCs</option><option value="normal" selected>Normal NPCs</option><option value="hard">Hard NPCs</option></select><button class="primary" data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section><section class="panel"><h2>Statistics</h2><div id="stats">Loading…</div></section>` : authForm()) + '</div>';
     if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">Open</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status === 'over' ? (x.winner === x.human ? 'won' : 'lost') : 'in progress'}</div>`).join('') : 'No games yet.'; });
     if (user) store.all().then(showStats).catch(() => {});
     return;
   }
   const g = game, cur = g.cur();
-  const over = g.status === 'over' ? `<p class="banner">${g.winner === g.human ? 'You won! You conquered the world.' : `You lost. ${esc(g.nm(g.human))} was eliminated by ${esc(g.nm(g.winner))}.`}</p>` : '';
-  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}${prevS[c.iso] !== undefined && prevS[c.iso] !== c.soldiers ? ' bump' : ''}" style="--c:${col(c.owner)}"><img src="${flag(c.iso)}" alt=""><b>${esc(c.name)}</b><span class="n">${c.soldiers}</span><small>${c.owner === c.iso ? (c.iso === g.human ? 'your nation' : 'NPC, ' + (g.profiles?.[c.iso] || 'standard')) : 'held by ' + esc(g.nm(c.owner))}${c.iso === g.human && c.owner !== c.iso ? ' (you)' : ''}</small>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
+  const over = g.status === 'over' ? `<p class="banner ${g.winner === g.human ? 'won' : 'lost'}">${g.winner === g.human ? 'You won! You conquered the world.' : `You lost. ${esc(g.nm(g.human))} was eliminated by ${esc(g.nm(g.winner))}.`}</p>` : '';
+  const tiles = g.countries.map(c => `<div class="tile ${c.owner === cur && g.status === 'playing' ? 'turn' : ''}${prevS[c.iso] !== undefined && prevS[c.iso] !== c.soldiers ? ' bump' : ''}" style="--c:${col(c.owner)}"><div class="flagbar" style="background-image:url(${flagBig(c.iso)})"></div><div class="tinfo"><b>${esc(c.name)}${c.iso === g.human ? '<em>you</em>' : ''}</b><small>${c.owner === c.iso ? (c.iso === g.human ? 'your nation' : 'NPC, ' + (g.profiles?.[c.iso] || 'standard')) : `<img class="mini" src="${flag(c.owner)}" alt="">held by ${esc(g.nm(c.owner))}`}</small></div><span class="n">${c.soldiers}</span>${isOwner() && cur === g.human && g.pending > 0 && c.owner === g.human ? `<button class="add primary" data-act="add" data-id="${c.iso}">+1</button>` : ''}</div>`).join('');
   g.countries.forEach(c => prevS[c.iso] = c.soldiers);
   const picked = sel.bt !== undefined && sel.bt !== '' ? g.battles?.[+sel.bt] : null;
   const battle = battleHtml(picked || g.lastBattle, g) + replayPicker(g);
   const log = [...g.log].reverse().map(l => `<p class="${l.t}">${esc(l.text)}</p>`).join('');
-  app.innerHTML = note + over + `<div class="layout"><div><p>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}</p><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? 'Normal speed' : 'Fast-forward NPCs'}</button><button data-act="copy">Copy share link</button><button data-act="home">All games</button></div></section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
+  app.innerHTML = note + over + `<div class="layout"><div><div class="order">${g.order.map(id => `<img class="${id === cur && g.status === 'playing' ? 'on' : ''}${g.owned(id).length ? '' : ' out'}" style="--c:${col(id)}" src="${flag(id)}" alt="${esc(g.nm(id))}" title="${esc(g.nm(id))}">`).join('')}<span>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}</span></div><div class="board">${tiles}</div><section class="panel">${battle}</section></div><div><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? 'Normal speed' : 'Fast-forward NPCs'}</button><button data-act="copy">Copy share link</button><button data-act="home">All games</button></div></section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}<section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
 }
 function controls() {
   const g = game;
@@ -54,17 +55,19 @@ function controls() {
   if (g.cur() !== g.human) return '<p>NPCs are playing…</p>';
   const own = g.owned(g.human), foes = g.countries.filter(c => c.owner !== g.human);
   const opts = (l, s) => l.map(c => `<option value="${c.iso}" ${c.iso === s ? 'selected' : ''}>${esc(c.name)} (${c.soldiers})</option>`).join('');
-  if (g.attack) return `<p>${esc(g.nm(g.attack.from))} (${g.c(g.attack.from).soldiers}) vs ${esc(g.nm(g.attack.to))} (${g.c(g.attack.to).soldiers})</p><div class="row"><button data-act="roll">Roll dice</button><button data-act="stop">Stop attack, end turn</button></div>`;
+  if (g.attack) return `<p>${esc(g.nm(g.attack.from))} (${g.c(g.attack.from).soldiers}) vs ${esc(g.nm(g.attack.to))} (${g.c(g.attack.to).soldiers})</p><div class="row"><button class="primary" data-act="roll">Roll dice</button><button data-act="stop">Stop attack, end turn</button></div>`;
   if (g.pending > 0) return `<p>Place ${g.pending} new soldiers with the +1 buttons.</p>`;
   const atk = own.filter(c => c.soldiers >= 2);
   sel.from = pick(sel.from, atk); sel.to = pick(sel.to, foes); sel.tf = pick(sel.tf, own); sel.tt = pick(sel.tt, own.filter(c => c.iso !== sel.tf));
-  return `<h2>Your turn</h2><div class="row"><select data-k="from" aria-label="Attack from">${opts(atk, sel.from)}</select><select data-k="to" aria-label="Target">${opts(foes, sel.to)}</select><button data-act="attack" ${g.attackUsed || !atk.length ? 'disabled' : ''}>Attack</button></div>` +
+  return `<h2>Your turn</h2><div class="row"><select data-k="from" aria-label="Attack from">${opts(atk, sel.from)}</select><select data-k="to" aria-label="Target">${opts(foes, sel.to)}</select><button class="primary" data-act="attack" ${g.attackUsed || !atk.length ? 'disabled' : ''}>Attack</button></div>` +
     (own.length > 1 ? `<div class="row"><select data-k="tf" aria-label="Transfer from">${opts(own, sel.tf)}</select><select data-k="tt" aria-label="Transfer to">${opts(own.filter(c => c.iso !== sel.tf), sel.tt)}</select><input data-k="n" type="number" min="1" value="${sel.n || 1}" style="width:70px" aria-label="Soldiers"><button data-act="transfer">Transfer</button></div>` : '') +
     `<div class="row"><button data-act="end">End turn</button></div>`;
 }
 function battleHtml(b, g) {
-  if (!b) return '<p>No battles yet.</p>';
-  return `<h2>${esc(g.nm(b.from))} attacks ${esc(g.nm(b.to))}</h2>` + b.A.map((a, i) => `<div class="dice"><span class="${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}">${die(a)}</span> vs <span class="${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}">${die(b.B[i])}</span></div>`).join('') + `<p>Attacker lost ${b.aLoss}, defender lost ${b.dLoss}.</p>`;
+  if (!b) return '<h2>Battlefield</h2><p>No battles yet. The dice will appear here.</p>';
+  const out = b.outcome === 'conquered' ? `${esc(g.nm(b.to))} conquered!` : b.outcome === 'failed' ? 'Attack failed.' : `Attacker lost ${b.aLoss}, defender lost ${b.dLoss}.`;
+  const side = id => `<div class="side"><img src="${flagBig(id)}" alt=""><b>${esc(g.nm(id))}</b></div>`;
+  return `<div class="duel">${side(b.from)}<span class="vs">VS</span>${side(b.to)}</div>` + b.A.map((a, i) => `<div class="pair"><span class="die ${a > b.B[i] ? 'win' : a < b.B[i] ? 'lose' : ''}">${die(a)}</span><span class="vs">vs</span><span class="die ${b.B[i] > a ? 'win' : b.B[i] < a ? 'lose' : ''}">${die(b.B[i])}</span></div>`).join('') + `<p class="result">${out}</p>`;
 }
 function replayPicker(g) {
   const l = (g.battles || []).map((x, i) => [x, i]).slice(-20).reverse();
