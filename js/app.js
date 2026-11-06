@@ -161,13 +161,15 @@ async function loop() {
 async function endHuman() { game.endTurn(); persist(true); render(); await loop(); }
 app.addEventListener('change', e => { const k = e.target.dataset.k; if (k) { sel[k] = e.target.value; if (k === 'tf' || k === 'bt') render(); } });
 app.addEventListener('input', e => { if (e.target.dataset.k === 'hs') { sel.hs = +e.target.value; const h = $('#hist'); if (h) h.innerHTML = histHtml(game, sel.hs); } });
+const AUTH_MSG = { 'auth/invalid-email': 'Please enter a valid email address (not your display name).', 'auth/missing-email': 'Please enter your email address.', 'auth/missing-password': 'Please enter your password.', 'auth/invalid-credential': 'Wrong email or password. If you have no account yet, press Create account.', 'auth/user-not-found': 'No account with that email. Press Create account.', 'auth/wrong-password': 'Wrong email or password.', 'auth/email-already-in-use': 'That email already has an account. Press Sign in.', 'auth/weak-password': 'Password must be at least 6 characters.', 'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.', 'auth/network-request-failed': 'Network error. Check your connection and try again.' };
+const friendly = err => AUTH_MSG[err.code] || err.message;
 document.addEventListener('click', async e => {
   const a = e.target.dataset?.act; if (!a) return;
   msg = '';
   try {
     if (a === 'out') return store.signOut();
-    if (a === 'signin') await store.signIn($('#email').value, $('#pw').value);
-    if (a === 'signup') await store.signUp($('#email').value, $('#pw').value, $('#dn').value);
+    if (a === 'signin') await store.signIn($('#email').value.trim(), $('#pw').value);
+    if (a === 'signup') await store.signUp($('#email').value.trim(), $('#pw').value, $('#dn').value.trim());
     if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email, $('#diff').value); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
     if (a === 'open') { gameId = e.target.dataset.id; history.pushState(null, '', '?g=' + gameId); return store.onAuth && location.reload(); }
     if (a === 'home') { location.href = location.pathname; return; }
@@ -183,6 +185,8 @@ document.addEventListener('click', async e => {
       if (a === 'transfer') { game.transfer(sel.tf, sel.tt, +sel.n || 1); persist(true); }
       if (a === 'end') return endHuman();
     }
-  } catch (err) { msg = err.message; }
+  } catch (err) { msg = friendly(err); }
+  const keep = ['email', 'dn'].map(i => $('#' + i)?.value || '');
   render();
+  ['email', 'dn'].forEach((i, k) => { const el = $('#' + i); if (el && keep[k]) el.value = keep[k]; });
 });
