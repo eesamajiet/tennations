@@ -16,10 +16,12 @@ let user = null, gameId = new URLSearchParams(location.search).get('g'), game = 
 const isOwner = () => user && game && game.ownerUid === user.uid;
 const persist = now => store.save(gameId, game, now);
 const col = id => COLORS[game.countries.findIndex(c => c.iso === id)];
+const canLeave = () => isOwner() && game.status === 'playing';
+const renderWho = () => { who.innerHTML = user ? `${canLeave() ? '<button data-act="leave">🚪 Leave game</button>' : ''}${esc(user.displayName || user.email)} <button data-act="out">Sign out</button>` : ''; };
 const pick = (v, l) => l.some(c => c.iso === v) ? v : l[0]?.iso;
 
 store.onAuth(async u => {
-  user = u; who.innerHTML = u ? `${esc(u.displayName || u.email)} <button data-act="out">Sign out</button>` : '';
+  user = u; renderWho();
   if (unsub) { unsub(); unsub = null; }
   game = null;
   if (gameId) {
@@ -34,10 +36,11 @@ function authForm() {
   return `<section class="panel"><h2>Sign in to play</h2><div class="row"><input id="email" type="email" placeholder="Email" aria-label="Email"><input id="pw" type="password" placeholder="Password" aria-label="Password"><input id="dn" placeholder="Display name (sign up)" aria-label="Display name"></div><div class="row"><button data-act="signin">Sign in</button><button data-act="signup">Create account</button></div></section>`;
 }
 function render() {
+  renderWho();
   const note = msg ? `<p class="banner note">${esc(msg)}</p>` : '';
   if (!game) {
     app.innerHTML = note + HERO + '<div class="lobby">' + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><select id="diff" aria-label="NPC difficulty"><option value="easy">Easy NPCs</option><option value="normal" selected>Normal NPCs</option><option value="hard">Hard NPCs</option></select><button class="primary" data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section><section class="panel"><h2>Statistics</h2><div id="stats">Loading…</div></section>` : authForm()) + '</div>';
-    if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">Open</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status === 'over' ? (x.winner === x.human ? 'won' : 'lost') : 'in progress'}</div>`).join('') : 'No games yet.'; });
+    if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">${x.status === 'over' ? 'View' : 'Continue'}</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status === 'over' ? (x.winner === x.human ? 'won' : 'lost') : 'in progress'}</div>`).join('') : 'No games yet.'; });
     if (user) store.all().then(showStats).catch(() => {});
     return;
   }
@@ -49,9 +52,9 @@ function render() {
   const ai = [...g.log].reverse().find(l => l.t === 'ai');
   const battle = battleHtml(picked || g.lastBattle, g) + (ai ? `<div class="bubble">🎙 ${esc(ai.text)}</div>` : '') + replayPicker(g);
   const log = [...g.log].reverse().map(l => `<p class="${l.t}">${esc(l.text)}</p>`).join('');
-  const railTop = $('#rail')?.scrollTop || 0;
-  app.innerHTML = note + over + `<div class="layout"><div><div class="order">${g.order.map(id => `<img class="${id === cur && g.status === 'playing' ? 'on' : ''}${g.owned(id).length ? '' : ' out'}" style="--c:${col(id)}" src="${flag(id)}" alt="${esc(g.nm(id))}" title="${esc(g.nm(id))}">`).join('')}<span>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}${g.status === 'playing' && cur !== g.human ? '<span class="dots"></span>' : ''}</span></div><div class="board">${tiles}</div></div><div class="rail" id="rail"><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? '▶ Normal speed' : '⏩ Fast-forward NPCs'}</button><button data-act="copy">🔗 Copy share link</button><button data-act="home">All games</button><button data-act="snd">${sound ? '🔊 Sound on' : '🔇 Sound off'}</button></div></section><section class="panel">${battle}</section><section class="panel log"><h2>Log</h2>${log}</section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}</div></div>`;
-  const rail = $('#rail'); if (rail) rail.scrollTop = railTop;
+  const keep = ['#rail', '.logcol .log', '.log-inline'].map(q => $(q)?.scrollTop || 0);
+  app.innerHTML = note + over + `<div class="layout"><div><div class="order">${g.order.map(id => `<img class="${id === cur && g.status === 'playing' ? 'on' : ''}${g.owned(id).length ? '' : ' out'}" style="--c:${col(id)}" src="${flag(id)}" alt="${esc(g.nm(id))}" title="${esc(g.nm(id))}">`).join('')}<span>${g.status === 'over' ? 'Game finished.' : `Round ${g.round}. ${esc(g.nm(cur))} is playing.`}${g.status === 'playing' && cur !== g.human ? '<span class="dots"></span>' : ''}</span></div><div class="board">${tiles}</div></div><div class="rail" id="rail"><section class="panel">${controls()}<div class="row"><button data-act="ff" aria-pressed="${ff}">${ff ? '▶ Normal speed' : '⏩ Fast-forward NPCs'}</button><button data-act="copy">🔗 Copy share link</button>${canLeave() ? '<button data-act="leave">🚪 Leave game</button>' : '<button data-act="home">Home</button>'}<button data-act="snd">${sound ? '🔊 Sound on' : '🔇 Sound off'}</button></div></section><section class="panel">${battle}</section><section class="panel log log-inline"><h2>Log</h2>${log}</section>${user ? '' : authForm()}${historyPanel(g)}${statsPanel(g)}</div><div class="logcol"><section class="panel log"><h2>Log</h2>${log}</section></div></div>`;
+  ['#rail', '.logcol .log', '.log-inline'].forEach((q, k) => { const el = $(q); if (el) el.scrollTop = keep[k]; });
   afterRender();
 }
 function controls() {
@@ -174,6 +177,7 @@ document.addEventListener('click', async e => {
     if (a === 'signup') await store.signUp($('#email').value.trim(), $('#pw').value, $('#dn').value.trim());
     if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email, $('#diff').value); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
     if (a === 'open') { gameId = e.target.dataset.id; history.pushState(null, '', '?g=' + gameId); return store.onAuth && location.reload(); }
+    if (a === 'leave') { toast('Saving your game…'); await persist(true); location.href = location.pathname; return; }
     if (a === 'home') { location.href = location.pathname; return; }
     if (a === 'ff') ff = !ff;
     if (a === 'snd') { sound = !sound; beep([[440, 0, .08]]); }
@@ -192,3 +196,5 @@ document.addEventListener('click', async e => {
   render();
   ['email', 'dn'].forEach((i, k) => { const el = $('#' + i); if (el && keep[k]) el.value = keep[k]; });
 });
+
+addEventListener('pagehide', () => { if (game && gameId && isOwner()) persist(true); });
