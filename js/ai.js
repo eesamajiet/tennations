@@ -1,4 +1,4 @@
-import { GEMINI_API_KEY, GEMINI_MODEL } from './config.js?v=4';
+import { GEMINI_API_KEY, GEMINI_MODEL } from './config.js?v=5';
 export class Commentator {
   static last = 0;
   static fallback(g, b) {

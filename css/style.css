@@ -61,13 +61,16 @@ input[type=range]{flex:1;padding:0;min-width:120px}
 .bubble{margin:12px 0 4px;padding:10px 14px;background:#fff;border:2px solid var(--ink);border-radius:14px 14px 14px 2px;font-style:italic}
 .dicefloat{display:flex;gap:18px;font-size:4rem;line-height:1;color:var(--brass);opacity:.4;margin:6px 0 10px}
 .dots::after{content:"..."}
-.toast{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%);z-index:50;font:900 clamp(2.4rem,8vw,5rem) 'Big Shoulders Display';color:var(--brass);text-shadow:0 4px 0 #000,0 0 30px #000a;pointer-events:none;text-align:center;width:90vw}
+#toasts{position:fixed;top:112px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;align-items:center;gap:8px;width:min(92vw,520px);pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;max-width:100%;padding:10px 16px;background:#0d1d18;color:#f4efe0;border:2px solid var(--brass);border-left-width:8px;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.55);font:700 1.25rem/1.1 'Big Shoulders Display',sans-serif;letter-spacing:.03em}
+.toast img{width:38px;height:26px;object-fit:cover;border-radius:3px;box-shadow:0 1px 4px #0008;flex:none}.toast img:last-child:not(:first-child){filter:grayscale(.85);opacity:.8}
+.toast span{min-width:0}
 .conf{position:fixed;top:-20px;width:10px;height:16px;z-index:40;pointer-events:none;animation:fall 3s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 @media(prefers-reduced-motion:no-preference){.dicefloat span{display:inline-block;animation:float 3s ease-in-out infinite}.dicefloat span:nth-child(2){animation-delay:.5s}.dicefloat span:nth-child(3){animation-delay:1s}
 @keyframes float{50%{transform:translateY(-12px) rotate(10deg)}}
 .dots::after{animation:dots 1.2s steps(4) infinite}@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
-.toast{animation:toast 2.2s forwards}@keyframes toast{0%{transform:translate(-50%,-50%) scale(.3) rotate(-8deg);opacity:0}15%{transform:translate(-50%,-50%) scale(1.1) rotate(-3deg);opacity:1}80%{opacity:1}100%{transform:translate(-50%,-90%) scale(1);opacity:0}}
+.toast{animation:toast 3.4s forwards}@keyframes toast{0%{transform:translateY(-14px);opacity:0}8%{transform:none;opacity:1}85%{opacity:1}100%{transform:translateY(-6px);opacity:0}}
 .tile.turn{animation:glow 1.6s ease-in-out infinite}@keyframes glow{50%{box-shadow:0 0 0 3px var(--brass),0 0 34px rgba(210,172,78,.9)}}}
 
 /* Right-hand rail (controls, battle, log) stays in view while the board scrolls */

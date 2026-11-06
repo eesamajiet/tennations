@@ -1,8 +1,8 @@
-import { COUNTRIES, flag, flagBig, soldiersFor } from './data.js?v=4';
-import { Game } from './engine.js?v=4';
-import { Npc } from './npc.js?v=4';
-import { Commentator } from './ai.js?v=4';
-import * as store from './store.js?v=4';
+import { COUNTRIES, flag, flagBig, soldiersFor } from './data.js?v=5';
+import { Game } from './engine.js?v=5';
+import { Npc } from './npc.js?v=5';
+import { Commentator } from './ai.js?v=5';
+import * as store from './store.js?v=5';
 const $ = s => document.querySelector(s), app = $('#app'), who = $('#who');
 const COLORS = ['#b5382d', '#2f6fa8', '#c8a24a', '#7a4fa0', '#2e8b6a', '#d17a22', '#8c8c3a', '#a84f78', '#4a6d7c', '#6b4a2f'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -17,7 +17,7 @@ const isOwner = () => user && game && game.ownerUid === user.uid;
 const persist = now => store.save(gameId, game, now);
 const col = id => COLORS[game.countries.findIndex(c => c.iso === id)];
 const canLeave = () => isOwner() && game.status === 'playing';
-const renderWho = () => { who.innerHTML = user ? `${canLeave() ? '<button data-act="leave">🚪 Leave game</button>' : ''}${esc(user.displayName || user.email)} <button data-act="out">Sign out</button>` : ''; };
+const renderWho = () => { who.innerHTML = user ? `${canLeave() ? '<button data-act="leave">🚪 Leave game</button>' : game ? '<button data-act="home">🏠 Home</button>' : ''}${esc(user.displayName || user.email)} <button data-act="out">Sign out</button>` : ''; };
 const pick = (v, l) => l.some(c => c.iso === v) ? v : l[0]?.iso;
 
 store.onAuth(async u => {
@@ -101,7 +101,12 @@ function beep(seq) {
   if (!sound) return;
   try { ctx ||= new AudioContext(); seq.forEach(([f, t, d]) => { const o = ctx.createOscillator(), v = ctx.createGain(); o.type = 'square'; o.frequency.value = f; v.gain.value = .04; o.connect(v); v.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + d); }); } catch {}
 }
-function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2200); }
+function toast(t, a, b) {
+  let box = $('#toasts'); if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.append(box); }
+  const d = document.createElement('div'); d.className = 'toast'; d.role = 'status';
+  d.innerHTML = (a ? `<img src="${flag(a)}" alt="">` : '') + `<span>${esc(t)}</span>` + (b ? `<img src="${flag(b)}" alt="">` : '');
+  box.append(d); setTimeout(() => d.remove(), 3400);
+}
 function afterRender() {
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (game.status === 'over' && confettiFor !== gameId) {
@@ -112,7 +117,7 @@ function afterRender() {
   if (sel.bt !== undefined && sel.bt !== '') return;
   document.querySelectorAll('.die').forEach(d => { const v = +d.dataset.v; let n = 0; const t = setInterval(() => { d.textContent = die(1 + Math.floor(Math.random() * 6)); if (++n > 7) { clearInterval(t); d.textContent = die(v); } }, 70); });
   beep(ROLL);
-  if (b.outcome === 'conquered') { toast(`${game.nm(b.from)} conquers ${game.nm(b.to)}!`); beep(WIN); }
+  if (b.outcome === 'conquered') { toast(`${game.nm(b.from)} conquers ${game.nm(b.to)}!`, b.from, b.to); beep(WIN); }
 }
 function battleHtml(b, g) {
   if (!b) return '<h2>Battlefield</h2><p>No battles yet. The dice will appear here.</p>';
