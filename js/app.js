@@ -1,8 +1,8 @@
-import { COUNTRIES, flag, flagBig } from './data.js';
-import { Game } from './engine.js';
-import { Npc } from './npc.js';
-import { Commentator } from './ai.js';
-import * as store from './store.js';
+import { COUNTRIES, flag, flagBig } from './data.js?v=3';
+import { Game } from './engine.js?v=3';
+import { Npc } from './npc.js?v=3';
+import { Commentator } from './ai.js?v=3';
+import * as store from './store.js?v=3';
 const $ = s => document.querySelector(s), app = $('#app'), who = $('#who');
 const COLORS = ['#b5382d', '#2f6fa8', '#c8a24a', '#7a4fa0', '#2e8b6a', '#d17a22', '#8c8c3a', '#a84f78', '#4a6d7c', '#6b4a2f'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));

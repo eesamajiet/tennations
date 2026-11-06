@@ -1,4 +1,4 @@
-import { COUNTRIES, soldiersFor } from './data.js';
+import { COUNTRIES, soldiersFor } from './data.js?v=3';
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 const shuffle = a => [...a].sort(() => Math.random() - .5);
 export class Country { constructor(o) { Object.assign(this, o); } }

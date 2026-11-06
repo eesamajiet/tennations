@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut as fbOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, collection, setDoc, getDoc, onSnapshot, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from './config.js';
+import { firebaseConfig } from './config.js?v=3';
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 let timer = null;
 const plain = g => JSON.parse(JSON.stringify(g));
