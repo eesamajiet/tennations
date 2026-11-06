@@ -9,8 +9,8 @@ h1{font-size:2.6rem;font-weight:900;color:var(--brass);text-shadow:0 2px 0 #000a
 h1 small{display:block;font:400 .8rem 'IBM Plex Sans';color:var(--mist);opacity:.7;letter-spacing:.02em;text-shadow:none;margin-top:4px}
 h2{font-size:1.45rem}
 main{position:relative;max-width:1760px;margin:auto;padding:22px}
-.hero{max-width:1240px;margin:0 auto;padding:24px 4px 18px}.hero h2{font-size:3.6rem;color:var(--brass);line-height:1}.hero p{max-width:52ch;font-size:1.1rem;opacity:.9}
-.lobby{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
+.hero{max-width:1400px;margin:0 auto;padding:24px 4px 18px}.hero h2{font-size:3.6rem;color:var(--brass);line-height:1}.hero p{max-width:52ch;font-size:1.1rem;opacity:.9}
+.lobby{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(300px,430px) minmax(0,1fr);gap:22px;align-items:start}
 .layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr) minmax(280px,.9fr);gap:22px;align-items:start}
 .logcol{position:sticky;top:10px;max-height:calc(100vh - 20px);display:flex}.logcol .panel{margin-bottom:0;width:100%}.logcol .log{max-height:calc(100vh - 20px)}.log-inline{display:none}
 @media(max-width:1279px){.layout{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.logcol{display:none}.log-inline{display:block}}
@@ -73,3 +73,42 @@ input[type=range]{flex:1;padding:0;min-width:120px}
 /* Right-hand rail (controls, battle, log) stays in view while the board scrolls */
 .rail{position:sticky;top:10px;align-self:start;max-height:calc(100vh - 20px);overflow-y:auto;padding-right:4px}
 @media(max-width:900px){.rail{position:static;max-height:none;overflow:visible;padding-right:0}}
+
+/* ---- Lobby ---- */
+.lobby.guest{grid-template-columns:minmax(300px,460px) minmax(0,1fr)}
+@media(max-width:900px){.lobby,.lobby.guest{grid-template-columns:1fr}}
+.stack{display:grid;gap:18px}.stack .panel,.newgame{margin-bottom:0}
+.newgame{position:sticky;top:14px}
+.lbl{display:block;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;opacity:.65;margin:10px 0 6px}
+.newgame select{width:100%}
+.pickprev{display:flex;gap:14px;align-items:center;margin:12px 0 4px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:8px}
+.pickprev img{width:92px;height:62px;object-fit:cover;border-radius:4px;box-shadow:0 4px 10px #0005}
+.pickprev b{display:block;font:700 1.6rem/1.05 'Big Shoulders Display'}.pickprev small{display:block;opacity:.7;font-size:.8rem}
+.pickprev .sold{margin-left:auto;text-align:center}.pickprev .sold strong{display:grid;place-items:center;width:46px;height:46px;margin:0 auto 2px;border-radius:50%;background:var(--ink);color:var(--brass);font:900 1.6rem 'Big Shoulders Display';box-shadow:0 0 0 3px var(--brass)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 16px;position:relative}
+.seg label{cursor:pointer;display:block}.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;height:100%;text-align:center;padding:9px 6px;background:#fff;border:2px solid var(--line);border-radius:8px;transition:border-color .15s,background .15s,transform .15s}
+.seg label:hover span{transform:translateY(-2px)}.seg b{display:block}.seg small{display:block;opacity:.7;font-size:.74rem;line-height:1.2}
+.seg input:checked+span{border-color:var(--brass);background:#fbf3dc;box-shadow:inset 0 0 0 1px var(--brass)}
+.seg input:focus-visible+span{outline:3px solid var(--ink);outline-offset:2px}
+.startbtn{width:100%;font-size:1.2rem;padding:13px;letter-spacing:.03em}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 8px;text-align:center}
+.stat b{display:block;font:900 2.1rem/1 'Big Shoulders Display';color:var(--ink)}.stat.hl b{color:#1f7a4d}
+.stat span{display:block;margin-top:4px;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;opacity:.65}
+.stat.fav{grid-column:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.stat.fav img{width:56px;height:38px;object-fit:cover;border-radius:3px;margin-bottom:4px;box-shadow:0 2px 6px #0005}.stat.fav b{font-size:1.4rem}
+.gamegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;max-height:460px;overflow:auto;padding:3px}
+.gcard{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-left:6px solid var(--st);border-radius:8px;padding:10px 12px;transition:transform .15s,box-shadow .15s}
+.gcard:hover{transform:translateY(-2px);box-shadow:0 8px 18px #0003}
+.gcard>img{width:66px;height:45px;object-fit:cover;border-radius:3px;box-shadow:0 2px 6px #0005;flex:none}
+.gcard .gi{flex:1;min-width:0}.gcard .gi>b{font:700 1.25rem 'Big Shoulders Display'}.gcard small{display:block;opacity:.7;font-size:.78rem}
+.badge{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:99px;background:var(--st);color:#fff;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;vertical-align:middle}
+.meter{height:6px;margin:6px 0 2px;background:var(--line);border-radius:4px;overflow:hidden}.meter i{display:block;height:100%;background:var(--st);border-radius:4px}
+.empty{opacity:.7;margin:4px 0}
+.skel{height:56px;border-radius:8px;margin-bottom:8px;background:linear-gradient(90deg,#dfe7e3 25%,#f1f5f3 50%,#dfe7e3 75%) 0 0/200% 100%}
+@media(prefers-reduced-motion:no-preference){.skel{animation:shim 1.2s linear infinite}@keyframes shim{to{background-position:-200% 0}}}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;align-self:start}
+.how>div{background:rgba(232,238,234,.08);border:1px solid rgba(210,172,78,.35);border-radius:8px;padding:16px}
+.how i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brass);color:var(--ink);font:900 1.2rem 'Big Shoulders Display';font-style:normal;margin-bottom:8px}
+.how b{font:700 1.3rem 'Big Shoulders Display';color:var(--brass)}.how p{margin:4px 0 0;opacity:.85;font-size:.95rem}

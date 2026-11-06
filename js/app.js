@@ -1,8 +1,8 @@
-import { COUNTRIES, flag, flagBig } from './data.js?v=3';
-import { Game } from './engine.js?v=3';
-import { Npc } from './npc.js?v=3';
-import { Commentator } from './ai.js?v=3';
-import * as store from './store.js?v=3';
+import { COUNTRIES, flag, flagBig, soldiersFor } from './data.js?v=4';
+import { Game } from './engine.js?v=4';
+import { Npc } from './npc.js?v=4';
+import { Commentator } from './ai.js?v=4';
+import * as store from './store.js?v=4';
 const $ = s => document.querySelector(s), app = $('#app'), who = $('#who');
 const COLORS = ['#b5382d', '#2f6fa8', '#c8a24a', '#7a4fa0', '#2e8b6a', '#d17a22', '#8c8c3a', '#a84f78', '#4a6d7c', '#6b4a2f'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -35,13 +35,38 @@ store.onAuth(async u => {
 function authForm() {
   return `<section class="panel"><h2>Sign in to play</h2><div class="row"><input id="email" type="email" placeholder="Email" aria-label="Email"><input id="pw" type="password" placeholder="Password" aria-label="Password"><input id="dn" placeholder="Display name (sign up)" aria-label="Display name"></div><div class="row"><button data-act="signin">Sign in</button><button data-act="signup">Create account</button></div></section>`;
 }
+
+const SORTED = [...COUNTRIES].sort((a, b) => a[0].localeCompare(b[0]));
+const fmtPop = m => m >= 1000 ? (m / 1000).toFixed(2) + ' billion' : m >= 1 ? (Math.round(m * 10) / 10) + ' million' : Math.round(m * 1e6).toLocaleString() + ' people';
+const prevHtml = iso => { const c = COUNTRIES.find(x => x[1] === iso) || COUNTRIES[0], n = soldiersFor(c[2]); return `<img src="${flagBig(c[1])}" alt=""><div><b>${esc(c[0])}</b><small>Population ${fmtPop(c[2])}</small></div><div class="sold"><strong>${n}</strong><small>starting soldier${n > 1 ? 's' : ''}</small></div>`; };
+const tile = (n, l, cls = '') => `<div class="stat ${cls}"><b>${n}</b><span>${l}</span></div>`;
+const skel = '<div class="skel"></div><div class="skel"></div>';
+const HOW = '<section class="how"><div><i>1</i><b>Pick a nation</b><p>Your population sets your starting army, from 1 to 9 soldiers. Nine random rivals join you.</p></div><div><i>2</i><b>Roll the dice</b><p>Each die is a soldier. Higher roll wins. Take every nation to conquer the world.</p></div><div><i>3</i><b>Share the link</b><p>Anyone with your game link can watch the battle live. Only you can play your turns.</p></div></section>';
+let allCache = null, allAt = 0;
+const loadAll = async () => { if (!allCache || Date.now() - allAt > 60000) { allCache = await store.all(); allAt = Date.now(); } return allCache; };
+function gameCard(x) {
+  const h = x.countries.find(c => c.iso === x.human), held = x.countries.filter(c => c.owner === x.human).length, total = x.countries.length;
+  const over = x.status === 'over', won = over && x.winner === x.human;
+  const st = over ? (won ? ['Won', '#1f7a4d'] : ['Lost', '#b5382d']) : ['In progress', '#c8962e'];
+  const when = x.created ? new Date(x.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
+  return `<div class="gcard" style="--st:${st[1]}"><img src="${flagBig(x.human)}" alt=""><div class="gi"><b>${esc(h.name)}</b> <span class="badge">${st[0]}</span><small>Round ${x.round} · ${esc(x.difficulty || 'normal')} NPCs${when ? ' · ' + when : ''}</small><div class="meter" title="${held} of ${total} nations held"><i style="width:${Math.round(held / total * 100)}%"></i></div><small>${held} of ${total} nations held</small></div><button data-act="open" data-id="${x.id}" class="${over ? '' : 'primary'}">${over ? 'View' : 'Continue'}</button></div>`;
+}
 function render() {
   renderWho();
   const note = msg ? `<p class="banner note">${esc(msg)}</p>` : '';
   if (!game) {
-    app.innerHTML = note + HERO + '<div class="lobby">' + (user ? `<section class="panel"><h2>New game</h2><div class="row"><select id="pick" aria-label="Your country">${COUNTRIES.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${c[0]}</option>`)}</select><select id="diff" aria-label="NPC difficulty"><option value="easy">Easy NPCs</option><option value="normal" selected>Normal NPCs</option><option value="hard">Hard NPCs</option></select><button class="primary" data-act="new">Start game</button></div></section><section class="panel"><h2>Your games</h2><div id="mine">Loading…</div></section><section class="panel"><h2>Statistics</h2><div id="stats">Loading…</div></section>` : authForm()) + '</div>';
-    if (user) store.mine(user.uid).then(l => { const el = $('#mine'); if (el) el.innerHTML = l.length ? l.map(x => `<div class="row"><button data-act="open" data-id="${x.id}">${x.status === 'over' ? 'View' : 'Continue'}</button>${esc(x.countries.find(c => c.iso === x.human).name)}, round ${x.round}, ${x.status === 'over' ? (x.winner === x.human ? 'won' : 'lost') : 'in progress'}</div>`).join('') : 'No games yet.'; });
-    if (user) store.all().then(showStats).catch(() => {});
+    const opts = SORTED.map(c => `<option value="${c[1]}" ${c[1] === 'za' ? 'selected' : ''}>${esc(c[0])}</option>`).join('');
+    const newGame = `<section class="panel newgame"><h2>New game</h2><label class="lbl" for="pick">Choose your nation</label><select id="pick" aria-label="Your country">${opts}</select><div class="pickprev" id="prev">${prevHtml('za')}</div><span class="lbl">NPC difficulty</span><div class="seg" role="radiogroup" aria-label="NPC difficulty"><label><input type="radio" name="diff" value="easy"><span><b>Easy</b><small>Rash attacks</small></span></label><label><input type="radio" name="diff" value="normal" checked><span><b>Normal</b><small>Plays to its style</small></span></label><label><input type="radio" name="diff" value="hard"><span><b>Hard</b><small>+1 soldier a round</small></span></label></div><button class="primary startbtn" data-act="new">⚔ Start game</button></section>`;
+    if (!user) { app.innerHTML = note + HERO + '<div class="lobby guest">' + authForm() + HOW + '</div>'; return; }
+    app.innerHTML = note + HERO + '<div class="lobby">' + newGame + '<div class="stack"><section class="panel"><h2>Your record</h2><div id="yours" class="statgrid">' + skel + '</div></section><section class="panel"><h2>Your games</h2><div id="mine" class="gamegrid">' + skel + '</div></section><section class="panel"><h2>Platform</h2><div id="stats" class="statgrid">' + skel + '</div></section></div></div>';
+    store.mine(user.uid).then(l => {
+      const el = $('#mine'), yr = $('#yours'); if (!el) return;
+      const fin = l.filter(x => x.status === 'over'), won = fin.filter(x => x.winner === x.human).length, conq = l.reduce((n, x) => n + (x.stats?.[x.human]?.conq || 0), 0);
+      const sorted = [...l.filter(x => x.status !== 'over'), ...fin];
+      el.innerHTML = sorted.length ? sorted.map(gameCard).join('') : '<p class="empty">No games yet. Pick a nation and start your first campaign.</p>';
+      if (yr) yr.innerHTML = tile(l.length, 'Games') + tile(won, 'Won', 'hl') + tile(fin.length - won, 'Lost') + tile(fin.length ? Math.round(won / fin.length * 100) + '%' : '0%', 'Win rate') + tile(conq, 'Conquests');
+    }).catch(() => { const el = $('#mine'); if (el) el.innerHTML = '<p class="empty">Could not load your games.</p>'; });
+    loadAll().then(showStats).catch(() => { const el = $('#stats'); if (el) el.innerHTML = '<p class="empty">Platform stats unavailable.</p>'; });
     return;
   }
   const g = game, cur = g.cur();
@@ -114,11 +139,10 @@ function statsPanel(g) {
 }
 function showStats(all) {
   const el = $('#stats'); if (!el) return;
-  const won = l => l.filter(x => x.winner === x.human).length, fin = all.filter(x => x.status === 'over');
-  const mine = all.filter(x => x.ownerUid === user.uid), mf = mine.filter(x => x.status === 'over'), cnt = {};
+  const fin = all.filter(x => x.status === 'over'), won = fin.filter(x => x.winner === x.human).length, cnt = {};
   all.forEach(x => cnt[x.human] = (cnt[x.human] || 0) + 1);
-  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-  el.innerHTML = `<p>You: ${mine.length} games, ${won(mf)} won, ${mf.length - won(mf)} lost.</p><p>Platform: ${all.length} games, ${fin.length} finished, player win rate ${fin.length ? Math.round(won(fin) / fin.length * 100) : 0}%, average ${fin.length ? Math.round(fin.reduce((s, x) => s + x.round, 0) / fin.length) : 0} rounds${top ? ', most picked nation ' + esc(COUNTRIES.find(c => c[1] === top[0])?.[0] || top[0]) : ''}.</p>`;
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0], tc = top && COUNTRIES.find(c => c[1] === top[0]);
+  el.innerHTML = tile(all.length, 'Games') + tile(fin.length, 'Finished') + tile(fin.length ? Math.round(won / fin.length * 100) + '%' : '0%', 'Player win rate') + tile(fin.length ? Math.round(fin.reduce((n, x) => n + x.round, 0) / fin.length) : 0, 'Avg rounds') + (tc ? `<div class="stat fav"><img src="${flagBig(tc[1])}" alt=""><b>${esc(tc[0])}</b><span>Most picked</span></div>` : '');
 }
 async function round(now) {
   const r = game.rollRound(); persist(now); render();
@@ -164,7 +188,7 @@ async function loop() {
   } finally { running = false; render(); }
 }
 async function endHuman() { game.endTurn(); persist(true); render(); await loop(); }
-app.addEventListener('change', e => { const k = e.target.dataset.k; if (k) { sel[k] = e.target.value; if (k === 'tf' || k === 'bt') render(); } });
+app.addEventListener('change', e => { if (e.target.id === 'pick') { const pv = $('#prev'); if (pv) pv.innerHTML = prevHtml(e.target.value); return; } const k = e.target.dataset.k; if (k) { sel[k] = e.target.value; if (k === 'tf' || k === 'bt') render(); } });
 app.addEventListener('input', e => { if (e.target.dataset.k === 'hs') { sel.hs = +e.target.value; const h = $('#hist'); if (h) h.innerHTML = histHtml(game, sel.hs); } });
 const AUTH_MSG = { 'auth/invalid-email': 'Please enter a valid email address (not your display name).', 'auth/missing-email': 'Please enter your email address.', 'auth/missing-password': 'Please enter your password.', 'auth/invalid-credential': 'Wrong email or password. If you have no account yet, press Create account.', 'auth/user-not-found': 'No account with that email. Press Create account.', 'auth/wrong-password': 'Wrong email or password.', 'auth/email-already-in-use': 'That email already has an account. Press Sign in.', 'auth/weak-password': 'Password must be at least 6 characters.', 'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.', 'auth/network-request-failed': 'Network error. Check your connection and try again.' };
 const friendly = err => AUTH_MSG[err.code] || err.message;
@@ -175,7 +199,7 @@ document.addEventListener('click', async e => {
     if (a === 'out') return store.signOut();
     if (a === 'signin') await store.signIn($('#email').value.trim(), $('#pw').value);
     if (a === 'signup') await store.signUp($('#email').value.trim(), $('#pw').value, $('#dn').value.trim());
-    if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email, $('#diff').value); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
+    if (a === 'new') { game = Game.create($('#pick').value, user.uid, user.displayName || user.email, ($('input[name=diff]:checked')?.value || 'normal')); gameId = await store.create(game); history.pushState(null, '', '?g=' + gameId); render(); return loop(); }
     if (a === 'open') { gameId = e.target.dataset.id; history.pushState(null, '', '?g=' + gameId); return store.onAuth && location.reload(); }
     if (a === 'leave') { toast('Saving your game…'); await persist(true); location.href = location.pathname; return; }
     if (a === 'home') { location.href = location.pathname; return; }
