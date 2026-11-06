@@ -40,7 +40,7 @@ button.primary{background:var(--brass);color:var(--ink)}
 .die{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:12px;background:#fff;font-size:46px;line-height:1;box-shadow:0 3px 0 #0003,inset 0 0 0 2px var(--line)}
 .die.win{color:#1f7a4d;box-shadow:0 0 0 3px #1f7a4d}.die.lose{color:var(--red);box-shadow:0 0 0 3px var(--red)}
 .result{text-align:center;font-weight:600;margin:10px 0 6px}
-.log{max-height:380px;overflow:auto;font-size:.92rem}.log p{margin:4px 0;padding-left:10px;border-left:3px solid #9aa}
+.log{max-height:260px;overflow:auto;font-size:.92rem}.log p{margin:4px 0;padding-left:10px;border-left:3px solid #9aa}
 .log p::before{content:"• ";opacity:.6}.log .decision{border-color:var(--brass)}.log .decision::before{content:"◆ ";color:#a07d1f}
 .log .battle::before{content:"⚔ "}.log .ai{border-color:var(--red);font-style:italic}.log .ai::before{content:"“ ";font-style:normal}
 .banner{padding:14px 20px;font:900 1.8rem 'Big Shoulders Display';letter-spacing:.04em;margin:0 0 18px;border-radius:6px;background:var(--brass);color:var(--ink)}
@@ -66,3 +66,7 @@ input[type=range]{flex:1;padding:0;min-width:120px}
 .dots::after{animation:dots 1.2s steps(4) infinite}@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 .toast{animation:toast 2.2s forwards}@keyframes toast{0%{transform:translate(-50%,-50%) scale(.3) rotate(-8deg);opacity:0}15%{transform:translate(-50%,-50%) scale(1.1) rotate(-3deg);opacity:1}80%{opacity:1}100%{transform:translate(-50%,-90%) scale(1);opacity:0}}
 .tile.turn{animation:glow 1.6s ease-in-out infinite}@keyframes glow{50%{box-shadow:0 0 0 3px var(--brass),0 0 34px rgba(210,172,78,.9)}}}
+
+/* Right-hand rail (controls, battle, log) stays in view while the board scrolls */
+.rail{position:sticky;top:10px;align-self:start;max-height:calc(100vh - 20px);overflow-y:auto;padding-right:4px}
+@media(max-width:900px){.rail{position:static;max-height:none;overflow:visible;padding-right:0}}
